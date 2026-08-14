@@ -1,15 +1,26 @@
 // Cloudflare Pages Function — /api/delete
 // Deletes a single message by id from the messages array
 
-export async function onRequestGet({ request, env }) {
+export async function onRequestPost({ request, env }) {
   const KV = env.CLIPDROP_KV;
   if (!KV) return new Response('KV not bound', { status: 500 });
 
-  const url = new URL(request.url);
-  const id = url.searchParams.get('id');
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return new Response('Invalid JSON', { status: 400 });
+  }
+
+  const { id } = body;
   if (!id) return new Response('Missing id', { status: 400 });
 
-  const raw = await KV.get('messages', 'json');
+  let raw;
+  try {
+    raw = await KV.get('messages', 'json');
+  } catch {
+    raw = null;
+  }
   const msgs = Array.isArray(raw) ? raw : [];
   const filtered = msgs.filter(m => m.id !== id);
 
