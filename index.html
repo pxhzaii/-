@@ -203,7 +203,7 @@ async function loadMessages() {
 
 function startPoll() {
   if (pollTimer) clearInterval(pollTimer);
-  pollTimer = setInterval(loadMessages, 1500);
+  pollTimer = setInterval(loadMessages, 3000);
 }
 
 function mergeMessages(serverMsgs) {
