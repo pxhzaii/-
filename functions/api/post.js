@@ -1,5 +1,8 @@
 // Cloudflare Pages Function — /api/post
 // Creates a new message (text or image)
+// All messages stored in a single KV key for fast read/write
+
+const MAX_MSGS = 200;
 
 export async function onRequestPost({ request, env }) {
   const KV = env.CLIPDROP_KV;
@@ -19,22 +22,18 @@ export async function onRequestPost({ request, env }) {
   const id = crypto.randomUUID();
   const msg = { id, type, content, ts: Date.now() };
 
-  await KV.put(`msg:${id}`, JSON.stringify(msg), {
-    expirationTtl: 7 * 24 * 3600 // Auto-delete after 7 days
-  });
-
-  // Cleanup: keep only latest 200 messages
-  const list = await KV.list({ prefix: 'msg:' });
-  if (list.keys.length > 200) {
-    const all = [];
-    for (const key of list.keys) {
-      const val = await KV.get(key.name, 'json');
-      if (val) all.push({ key: key.name, ts: val.ts || 0 });
-    }
-    all.sort((a, b) => a.ts - b.ts);
-    const toDelete = all.slice(0, all.length - 200);
-    await Promise.all(toDelete.map(item => KV.delete(item.key)));
+  // Read current messages, append, trim
+  const raw = await KV.get('messages', 'json');
+  const msgs = Array.isArray(raw) ? raw : [];
+  msgs.push(msg);
+  // Keep only latest MAX_MSGS
+  if (msgs.length > MAX_MSGS) {
+    msgs.splice(0, msgs.length - MAX_MSGS);
   }
+
+  await KV.put('messages', JSON.stringify(msgs), {
+    expirationTtl: 7 * 24 * 3600
+  });
 
   return new Response(JSON.stringify(msg), {
     headers: { 'Content-Type': 'application/json' }
