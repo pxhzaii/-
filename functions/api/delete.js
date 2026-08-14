@@ -1,10 +1,10 @@
 // Cloudflare Pages Function — /api/delete
-// Deletes a single message by id from the messages array
-// Returns updated message list to bypass KV consistency delay
+// Deletes a single message by id from D1
+// Returns updated message list
 
 export async function onRequestPost({ request, env }) {
-  const KV = env.CLIPDROP_KV;
-  if (!KV) return new Response('KV not bound', { status: 500 });
+  const DB = env.DB;
+  if (!DB) return new Response('D1 not bound', { status: 500 });
 
   let body;
   try {
@@ -16,22 +16,13 @@ export async function onRequestPost({ request, env }) {
   const { id } = body;
   if (!id) return new Response('Missing id', { status: 400 });
 
-  let raw;
-  try {
-    raw = await KV.get('messages', 'json');
-  } catch {
-    raw = null;
-  }
-  const msgs = Array.isArray(raw) ? raw : [];
-  const filtered = msgs.filter(m => m.id !== id);
+  await DB.prepare('DELETE FROM messages WHERE id = ?').bind(id).run();
 
-  if (filtered.length !== msgs.length) {
-    await KV.put('messages', JSON.stringify(filtered), {
-      expirationTtl: 7 * 24 * 3600
-    });
-  }
+  const { results } = await DB.prepare(
+    'SELECT id, type, content, ts FROM messages ORDER BY ts ASC'
+  ).all();
 
-  return new Response(JSON.stringify({ ok: true, messages: filtered }), {
+  return new Response(JSON.stringify({ ok: true, messages: results }), {
     headers: { 'Content-Type': 'application/json' }
   });
 }
