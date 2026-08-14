@@ -258,7 +258,7 @@ async function clearAll() {
 }
 
 // ——— Send (optimistic render) ———
-function sendText() {
+async function sendText() {
   const el = document.getElementById('textInput');
   const text = el.value.trim();
   if (!text) return;
