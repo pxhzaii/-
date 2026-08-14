@@ -176,7 +176,6 @@
 const API = '/api';
 let messages = [];
 let pollTimer = null;
-let lastJson = '';
 
 // ——— Init ———
 init();
@@ -232,8 +231,10 @@ async function postItem(data) {
       body: JSON.stringify(data)
     });
     if (!r.ok) throw new Error(await r.text());
+    return true;
   } catch(e) {
     toast('发送失败');
+    return false;
   }
 }
 
@@ -241,7 +242,11 @@ async function deleteItem(id) {
   // Optimistic: remove from local immediately
   messages = messages.filter(m => m.id !== id);
   render();
-  await fetch(`${API}/delete?id=${encodeURIComponent(id)}`);
+  await fetch(`${API}/delete`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id })
+  });
 }
 
 async function clearAll() {
@@ -261,12 +266,18 @@ function sendText() {
   el.style.height = 'auto';
 
   // Optimistic: show immediately
-  const msg = { id: 'pending-' + Date.now(), type: 'text', content: text, ts: Date.now(), _pending: true };
+  const pendingId = 'pending-' + Date.now();
+  const msg = { id: pendingId, type: 'text', content: text, ts: Date.now(), _pending: true };
   messages.push(msg);
   render();
   scrollToBottom();
 
-  postItem({ type: 'text', content: text });
+  const ok = await postItem({ type: 'text', content: text });
+  if (!ok) {
+    // Remove pending on failure
+    messages = messages.filter(m => m.id !== pendingId);
+    render();
+  }
 }
 
 async function sendImage(blob) {
@@ -275,12 +286,17 @@ async function sendImage(blob) {
     const dataUrl = await compressImage(blob);
 
     // Optimistic: show immediately
-    const msg = { id: 'pending-' + Date.now(), type: 'image', content: dataUrl, ts: Date.now(), _pending: true };
+    const pendingId = 'pending-' + Date.now();
+    const msg = { id: pendingId, type: 'image', content: dataUrl, ts: Date.now(), _pending: true };
     messages.push(msg);
     render();
     scrollToBottom();
 
-    await postItem({ type: 'image', content: dataUrl });
+    const ok = await postItem({ type: 'image', content: dataUrl });
+    if (!ok) {
+      messages = messages.filter(m => m.id !== pendingId);
+      render();
+    }
   } catch(e) {
     toast('图片处理失败');
   }
@@ -371,7 +387,7 @@ function copyText(el) {
 function previewImage(src) {
   const overlay = document.createElement('div');
   overlay.className = 'img-preview-overlay';
-  overlay.innerHTML = `<img src="${src}">`;
+  overlay.innerHTML = `<img src="${escAttr(src)}">`;
   overlay.onclick = () => overlay.remove();
   document.body.appendChild(overlay);
 }
