@@ -1,13 +1,4 @@
----
-AIGC:
-  ContentProducer: '001191110102MAD55U9H0F10002'
-  ContentPropagator: '001191110102MAD55U9H0F10002'
-  Label: '1'
-  ProduceID: '0d38c472-fdea-4cbf-b0d0-5b5f0effed20'
-  PropagateID: '0d38c472-fdea-4cbf-b0d0-5b5f0effed20'
-  ReservedCode1: '6335ded8-15b2-47c8-a064-ee08615785c0'
-  ReservedCode2: '6335ded8-15b2-47c8-a064-ee08615785c0'
----
+
 
 # ClipDrop
 
@@ -65,4 +56,3 @@ CREATE TABLE IF NOT EXISTS messages (
 - 存储：Cloudflare D1（SQLite，强一致）
 - 同步：3 秒轮询（D1 强一致，读即最新）
 
-> AI生成
