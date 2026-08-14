@@ -1,5 +1,5 @@
 // Cloudflare Pages Function — /api/clear
-// Deletes all messages
+// Deletes all messages, returns empty list
 
 export async function onRequestPost({ env }) {
   const KV = env.CLIPDROP_KV;
@@ -7,7 +7,7 @@ export async function onRequestPost({ env }) {
 
   await KV.put('messages', '[]');
 
-  return new Response(JSON.stringify({ ok: true }), {
+  return new Response(JSON.stringify({ ok: true, messages: [] }), {
     headers: { 'Content-Type': 'application/json' }
   });
 }
