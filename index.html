@@ -47,7 +47,7 @@
     }
     .msg-row {
       display: flex; justify-content: flex-start;
-      animation: msgIn .25s ease;
+      animation: msgIn .2s ease;
     }
     @keyframes msgIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
 
@@ -71,6 +71,9 @@
     .msg-time-small {
       font-size: 10px; color: var(--text3); margin-top: 3px; text-align: right;
     }
+
+    /* Pending indicator */
+    .msg-row.pending .bubble { opacity: .6; }
 
     /* Empty */
     .empty {
@@ -106,13 +109,6 @@
     }
     .btn-img svg { width: 20px; height: 20px; color: var(--text2); }
     .btn-img:active { background: #eee; }
-
-    /* Sending indicator */
-    .sending-badge {
-      font-size: 11px; color: var(--text3); padding: 4px 0 0 10px;
-      display: none;
-    }
-    .sending-badge.show { display: block; }
 
     /* Image Preview */
     .img-preview-overlay {
@@ -164,7 +160,6 @@
 </div>
 
 <div class="messages" id="messages"></div>
-<div class="sending-badge" id="sendingBadge">发送中…</div>
 
 <div class="input-bar">
   <input type="file" id="fileInput" accept="image/*" style="display:none">
@@ -204,14 +199,14 @@ function connectSSE() {
   });
   sse.addEventListener('update', e => {
     const wasAtBottom = isAtBottom();
-    messages = JSON.parse(e.data);
+    const newData = JSON.parse(e.data);
+    messages = newData;
     render();
     if (wasAtBottom) scrollToBottom();
   });
   sse.onerror = () => {
     setConnected(false);
-    sse.close();
-    sse = null;
+    sse.close(); sse = null;
     setTimeout(connectSSE, reconnectDelay);
     reconnectDelay = Math.min(reconnectDelay * 2, 10000);
   };
@@ -223,8 +218,6 @@ function setConnected(on) {
 
 // ——— API ———
 async function postItem(data) {
-  const badge = document.getElementById('sendingBadge');
-  badge.classList.add('show');
   try {
     const r = await fetch(`${API}/post`, {
       method: 'POST',
@@ -234,8 +227,6 @@ async function postItem(data) {
     if (!r.ok) throw new Error(await r.text());
   } catch(e) {
     toast('发送失败');
-  } finally {
-    badge.classList.remove('show');
   }
 }
 
@@ -248,13 +239,20 @@ async function clearAll() {
   await fetch(`${API}/clear`, { method: 'POST' });
 }
 
-// ——— Send ———
+// ——— Send (optimistic render) ———
 function sendText() {
   const el = document.getElementById('textInput');
   const text = el.value.trim();
   if (!text) return;
   el.value = '';
   el.style.height = 'auto';
+
+  // Optimistic: show immediately
+  const msg = { id: 'pending-' + Date.now(), type: 'text', content: text, ts: Date.now(), _pending: true };
+  messages.push(msg);
+  render();
+  scrollToBottom();
+
   postItem({ type: 'text', content: text });
 }
 
@@ -262,6 +260,13 @@ async function sendImage(blob) {
   toast('压缩中…');
   try {
     const dataUrl = await compressImage(blob);
+
+    // Optimistic: show immediately
+    const msg = { id: 'pending-' + Date.now(), type: 'image', content: dataUrl, ts: Date.now(), _pending: true };
+    messages.push(msg);
+    render();
+    scrollToBottom();
+
     await postItem({ type: 'image', content: dataUrl });
   } catch(e) {
     toast('图片处理失败');
@@ -322,7 +327,8 @@ function render() {
     }
     inner += `<div class="msg-time-small">${fmtTimeShort(m.ts)}</div>`;
 
-    html += `<div class="msg-row">
+    const pending = m._pending ? ' pending' : '';
+    html += `<div class="msg-row${pending}">
       <div class="bubble" data-id="${m.id}" oncontextmenu="showActions(event,'${m.id}','${m.type}')">${inner}</div>
     </div>`;
   });
