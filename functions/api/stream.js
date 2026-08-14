@@ -1,5 +1,5 @@
 // Cloudflare Pages Function — /api/stream
-// SSE real-time push: clients connect here, get live updates
+// SSE real-time push: single KV key poll, fast
 
 export async function onRequestGet({ env }) {
   const KV = env.CLIPDROP_KV;
@@ -17,31 +17,20 @@ export async function onRequestGet({ env }) {
         } catch (e) { closed = true; }
       };
 
-      // Send initial snapshot
-      const list = await KV.list({ prefix: 'msg:' });
-      const items = [];
-      for (const key of list.keys) {
-        const val = await KV.get(key.name, 'json');
-        if (val) items.push(val);
-      }
-      items.sort((a, b) => a.ts - b.ts);
-      send('init', items);
+      // Send initial snapshot — single KV read
+      const init = await KV.get('messages', 'json') || [];
+      send('init', init);
 
-      // Poll KV for changes every 1s
-      let lastCount = items.length;
+      // Poll single key for changes every 800ms
+      let lastJson = JSON.stringify(init);
       while (!closed) {
-        await sleep(1000);
+        await sleep(800);
         try {
-          const newList = await KV.list({ prefix: 'msg:' });
-          if (newList.keys.length !== lastCount) {
-            lastCount = newList.keys.length;
-            const refreshed = [];
-            for (const key of newList.keys) {
-              const val = await KV.get(key.name, 'json');
-              if (val) refreshed.push(val);
-            }
-            refreshed.sort((a, b) => a.ts - b.ts);
-            send('update', refreshed);
+          const msgs = await KV.get('messages', 'json') || [];
+          const json = JSON.stringify(msgs);
+          if (json !== lastJson) {
+            lastJson = json;
+            send('update', msgs);
           }
         } catch (e) { closed = true; }
       }
