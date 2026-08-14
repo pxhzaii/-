@@ -2,6 +2,7 @@ name = "clipdrop"
 compatibility_date = "2024-12-01"
 pages_build_output_dir = "."
 
-[[kv_namespaces]]
-binding = "CLIPDROP_KV"
-id = "8fa99c14cf3e4db894473f2408298ca5"
+[[d1_databases]]
+binding = "DB"
+database_name = "clipdrop-db"
+database_id = "PLACEHOLDER_D1_DATABASE_ID"
