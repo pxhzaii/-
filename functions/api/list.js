@@ -1,13 +1,15 @@
 // Cloudflare Pages Function — /api/list
-// Returns all messages from single KV key
-// Using POST to avoid Cloudflare CDN caching (GET responses are cached ~30s)
+// Returns all messages from D1 (strongly consistent, no KV eventual delay)
 
 export async function onRequestPost({ env }) {
-  const KV = env.CLIPDROP_KV;
-  if (!KV) return new Response('KV not bound', { status: 500 });
+  const DB = env.DB;
+  if (!DB) return new Response('D1 not bound', { status: 500 });
 
-  const msgs = await KV.get('messages', 'json') || [];
-  return new Response(JSON.stringify(msgs), {
+  const { results } = await DB.prepare(
+    'SELECT id, type, content, ts FROM messages ORDER BY ts ASC LIMIT 200'
+  ).all();
+
+  return new Response(JSON.stringify(results), {
     headers: { 'Content-Type': 'application/json' }
   });
 }
