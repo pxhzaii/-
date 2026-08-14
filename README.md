@@ -40,14 +40,17 @@ CREATE TABLE IF NOT EXISTS messages (
 4. 推送到 GitHub
 
 5. Cloudflare Pages → 创建 → 连接 Git → 选 clipdrop 仓库
+6. Pages非works
+7. Pages非works
+8. Pages非works
    - 构建配置留空
    - 根目录：`.`
 
-6. 绑定 D1：Pages 项目 → Settings → Bindings → Add → D1 Database
+9. 绑定 D1：Pages 项目 → Settings → Bindings → Add → D1 Database
    - Variable name: `DB`
    - 选择刚创建的 `clipdrop-db`
 
-7. 重新部署生效
+10. 重新部署生效
 
 ## 技术栈
 
