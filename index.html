@@ -194,13 +194,25 @@ function connectSSE() {
   };
   sse.addEventListener('init', e => {
     messages = JSON.parse(e.data);
+    // Remove pending messages that are now confirmed by server
+    messages = messages.map(m => {
+      if (m._pending) return m;
+      return m;
+    });
     render();
     scrollToBottom();
   });
   sse.addEventListener('update', e => {
     const wasAtBottom = isAtBottom();
-    const newData = JSON.parse(e.data);
-    messages = newData;
+    const serverMsgs = JSON.parse(e.data);
+    // Merge: keep pending messages that aren't in server data yet
+    const pendingMsgs = messages.filter(m => m._pending);
+    const pendingContents = new Set(pendingMsgs.map(m => m.content));
+    // Filter out pending messages that server now has (by content match)
+    const stillPending = pendingMsgs.filter(pm =>
+      !serverMsgs.some(sm => sm.content === pm.content && Math.abs(sm.ts - pm.ts) < 10000)
+    );
+    messages = [...serverMsgs, ...stillPending].sort((a, b) => a.ts - b.ts);
     render();
     if (wasAtBottom) scrollToBottom();
   });
@@ -231,11 +243,17 @@ async function postItem(data) {
 }
 
 async function deleteItem(id) {
+  // Optimistic: remove from local immediately
+  messages = messages.filter(m => m.id !== id);
+  render();
   await fetch(`${API}/delete?id=${encodeURIComponent(id)}`);
 }
 
 async function clearAll() {
   if (!confirm('确定清空所有内容？')) return;
+  // Optimistic: clear local immediately
+  messages = [];
+  render();
   await fetch(`${API}/clear`, { method: 'POST' });
 }
 
@@ -323,7 +341,7 @@ function render() {
     if (m.type === 'text') {
       inner = `<div class="msg-text" onclick="copyText(this)">${escHtml(m.content)}</div>`;
     } else if (m.type === 'image') {
-      inner = `<img class="msg-img" src="${m.content}" onclick="previewImage(this.src)" loading="lazy">`;
+      inner = `<img class="msg-img" src="${escAttr(m.content)}" onclick="previewImage(this.src)" loading="lazy">`;
     }
     inner += `<div class="msg-time-small">${fmtTimeShort(m.ts)}</div>`;
 
@@ -344,6 +362,9 @@ function fmtTimeShort(ts) {
 }
 function escHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function escAttr(s) {
+  return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 // ——— Interactions ———
