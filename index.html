@@ -175,53 +175,49 @@
 <script>
 const API = '/api';
 let messages = [];
-let sse = null;
-let reconnectDelay = 1000;
+let pollTimer = null;
+let lastJson = '';
 
 // ——— Init ———
-connectSSE();
-setupPaste();
-setupDrag();
-setupInput();
+init();
 
-// ——— SSE Real-time ———
-function connectSSE() {
-  if (sse) { sse.close(); sse = null; }
-  sse = new EventSource(`${API}/stream`);
-  sse.onopen = () => {
+async function init() {
+  await loadMessages();
+  startPoll();
+  setupPaste();
+  setupDrag();
+  setupInput();
+}
+
+// ——— Polling ———
+async function loadMessages() {
+  try {
+    const r = await fetch(`${API}/list`);
+    if (!r.ok) throw new Error(r.status);
+    const data = await r.json();
+    mergeMessages(data);
     setConnected(true);
-    reconnectDelay = 1000;
-  };
-  sse.addEventListener('init', e => {
-    messages = JSON.parse(e.data);
-    // Remove pending messages that are now confirmed by server
-    messages = messages.map(m => {
-      if (m._pending) return m;
-      return m;
-    });
-    render();
-    scrollToBottom();
-  });
-  sse.addEventListener('update', e => {
-    const wasAtBottom = isAtBottom();
-    const serverMsgs = JSON.parse(e.data);
-    // Merge: keep pending messages that aren't in server data yet
-    const pendingMsgs = messages.filter(m => m._pending);
-    const pendingContents = new Set(pendingMsgs.map(m => m.content));
-    // Filter out pending messages that server now has (by content match)
-    const stillPending = pendingMsgs.filter(pm =>
-      !serverMsgs.some(sm => sm.content === pm.content && Math.abs(sm.ts - pm.ts) < 10000)
-    );
-    messages = [...serverMsgs, ...stillPending].sort((a, b) => a.ts - b.ts);
-    render();
-    if (wasAtBottom) scrollToBottom();
-  });
-  sse.onerror = () => {
+  } catch(e) {
     setConnected(false);
-    sse.close(); sse = null;
-    setTimeout(connectSSE, reconnectDelay);
-    reconnectDelay = Math.min(reconnectDelay * 2, 10000);
-  };
+  }
+}
+
+function startPoll() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(loadMessages, 1500);
+}
+
+function mergeMessages(serverMsgs) {
+  const wasAtBottom = isAtBottom();
+  // Keep pending messages not yet confirmed by server
+  const pendingMsgs = messages.filter(m => m._pending);
+  const stillPending = pendingMsgs.filter(pm =>
+    !serverMsgs.some(sm => sm.content === pm.content && Math.abs(sm.ts - pm.ts) < 10000)
+  );
+  messages = [...serverMsgs, ...stillPending].sort((a, b) => a.ts - b.ts);
+  render();
+  if (wasAtBottom) scrollToBottom();
+}
 }
 
 function setConnected(on) {
