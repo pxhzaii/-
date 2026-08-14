@@ -1,15 +1,13 @@
 // Cloudflare Pages Function — /api/post
-// Creates a new message (text or image)
-// All messages stored in a single KV key for fast read/write
-// Returns the full message list after write (avoids KV eventual consistency delay)
+// Creates a new message (text or image) in D1
+// Returns the full message list after write
 
-const MAX_MSGS = 200;
 const MAX_TEXT = 10000;
 const MAX_IMAGE = 500_000;
 
 export async function onRequestPost({ request, env }) {
-  const KV = env.CLIPDROP_KV;
-  if (!KV) return new Response('KV not bound', { status: 500 });
+  const DB = env.DB;
+  if (!DB) return new Response('D1 not bound', { status: 500 });
 
   let body;
   try {
@@ -29,29 +27,24 @@ export async function onRequestPost({ request, env }) {
   }
 
   const id = crypto.randomUUID();
-  const msg = { id, type, content, ts: Date.now() };
+  const ts = Date.now();
 
-  // Read-append-trim
-  let raw;
-  try {
-    raw = await KV.get('messages', 'json');
-  } catch {
-    raw = null;
-  }
-  const msgs = Array.isArray(raw) ? raw : [];
-  msgs.push(msg);
-  if (msgs.length > MAX_MSGS) {
-    msgs.splice(0, msgs.length - MAX_MSGS);
-  }
-  try {
-    await KV.put('messages', JSON.stringify(msgs), { expirationTtl: 7 * 24 * 3600 });
-  } catch {
-    return new Response('KV write failed', { status: 500 });
-  }
+  await DB.prepare(
+    'INSERT INTO messages (id, type, content, ts) VALUES (?, ?, ?, ?)'
+  ).bind(id, type, content, ts).run();
 
-  // Return full message list so client can update immediately
-  // without waiting for KV eventual consistency on the next poll
-  return new Response(JSON.stringify({ msg, messages: msgs }), {
+  // Auto-cleanup: keep only latest 200 messages
+  await DB.prepare(
+    'DELETE FROM messages WHERE id NOT IN (SELECT id FROM messages ORDER BY ts DESC LIMIT 200)'
+  ).run();
+
+  // Return full message list
+  const { results } = await DB.prepare(
+    'SELECT id, type, content, ts FROM messages ORDER BY ts ASC'
+  ).all();
+
+  const msg = { id, type, content, ts };
+  return new Response(JSON.stringify({ msg, messages: results }), {
     headers: { 'Content-Type': 'application/json' }
   });
 }
