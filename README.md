@@ -3,10 +3,10 @@ AIGC:
   ContentProducer: '001191110102MAD55U9H0F10002'
   ContentPropagator: '001191110102MAD55U9H0F10002'
   Label: '1'
-  ProduceID: '929dec6d-77ba-4b3f-b219-173426ce8534'
-  PropagateID: '929dec6d-77ba-4b3f-b219-173426ce8534'
-  ReservedCode1: 'd19e58b3-f046-4b1e-8df9-aa7a4a71df97'
-  ReservedCode2: 'd19e58b3-f046-4b1e-8df9-aa7a4a71df97'
+  ProduceID: 'da98ef12-8629-499e-8ae9-e8e7b2305baa'
+  PropagateID: 'da98ef12-8629-499e-8ae9-e8e7b2305baa'
+  ReservedCode1: '7185e8d2-f66a-4470-a8fd-5b9f973fa214'
+  ReservedCode2: '7185e8d2-f66a-4470-a8fd-5b9f973fa214'
 ---
 
 # ClipDrop
@@ -35,9 +35,9 @@ npx wrangler kv namespace create "CLIPDROP_KV"
 
 3. 推送到 GitHub
 
-4. Cloudflare Pages → Create → Connect to Git → 选 clipdrop 仓库
-   - Build 配置留空
-   - Root directory: `/`
+4. Cloudflare Pages → 创建 → 连接 Git → 选 clipdrop 仓库
+   - 构建配置留空
+   - 根目录：`.`
 
 5. 绑定 KV：Pages 项目 → Settings → Functions → KV namespace bindings
    - Variable name: `CLIPDROP_KV`
