@@ -1,6 +1,7 @@
 // Cloudflare Pages Function — /api/post
 // Creates a new message (text or image)
 // All messages stored in a single KV key for fast read/write
+// Returns the full message list after write (avoids KV eventual consistency delay)
 
 const MAX_MSGS = 200;
 const MAX_TEXT = 10000;
@@ -30,30 +31,27 @@ export async function onRequestPost({ request, env }) {
   const id = crypto.randomUUID();
   const msg = { id, type, content, ts: Date.now() };
 
-  // Read-append-trim (3 retries for race condition)
-  for (let attempt = 0; attempt < 3; attempt++) {
-    let raw;
-    try {
-      raw = await KV.get('messages', 'json');
-    } catch {
-      raw = null;
-    }
-    const msgs = Array.isArray(raw) ? raw : [];
-    msgs.push(msg);
-    // Keep only latest MAX_MSGS
-    if (msgs.length > MAX_MSGS) {
-      msgs.splice(0, msgs.length - MAX_MSGS);
-    }
-    const json = JSON.stringify(msgs);
-    try {
-      await KV.put('messages', json, { expirationTtl: 7 * 24 * 3600 });
-      break;
-    } catch (e) {
-      if (attempt === 2) return new Response('KV write failed', { status: 500 });
-    }
+  // Read-append-trim
+  let raw;
+  try {
+    raw = await KV.get('messages', 'json');
+  } catch {
+    raw = null;
+  }
+  const msgs = Array.isArray(raw) ? raw : [];
+  msgs.push(msg);
+  if (msgs.length > MAX_MSGS) {
+    msgs.splice(0, msgs.length - MAX_MSGS);
+  }
+  try {
+    await KV.put('messages', JSON.stringify(msgs), { expirationTtl: 7 * 24 * 3600 });
+  } catch {
+    return new Response('KV write failed', { status: 500 });
   }
 
-  return new Response(JSON.stringify(msg), {
+  // Return full message list so client can update immediately
+  // without waiting for KV eventual consistency on the next poll
+  return new Response(JSON.stringify({ msg, messages: msgs }), {
     headers: { 'Content-Type': 'application/json' }
   });
 }
