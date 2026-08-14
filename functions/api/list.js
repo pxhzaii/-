@@ -7,6 +7,13 @@ export async function onRequestGet({ env }) {
 
   const msgs = await KV.get('messages', 'json') || [];
   return new Response(JSON.stringify(msgs), {
-    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+      'CDN-Cache-Control': 'no-store',
+      'Cloudflare-CDN-Cache-Control': 'no-store',
+    }
   });
 }
