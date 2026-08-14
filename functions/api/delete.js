@@ -1,5 +1,6 @@
 // Cloudflare Pages Function — /api/delete
 // Deletes a single message by id from the messages array
+// Returns updated message list to bypass KV consistency delay
 
 export async function onRequestPost({ request, env }) {
   const KV = env.CLIPDROP_KV;
@@ -30,7 +31,7 @@ export async function onRequestPost({ request, env }) {
     });
   }
 
-  return new Response(JSON.stringify({ ok: true }), {
+  return new Response(JSON.stringify({ ok: true, messages: filtered }), {
     headers: { 'Content-Type': 'application/json' }
   });
 }
