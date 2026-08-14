@@ -231,10 +231,13 @@ async function postItem(data) {
       body: JSON.stringify(data)
     });
     if (!r.ok) throw new Error(await r.text());
-    return true;
+    const result = await r.json();
+    // Server returns full message list — update immediately
+    if (result.messages) mergeMessages(result.messages);
+    return result.msg || null;
   } catch(e) {
     toast('发送失败');
-    return false;
+    return null;
   }
 }
 
@@ -242,11 +245,16 @@ async function deleteItem(id) {
   // Optimistic: remove from local immediately
   messages = messages.filter(m => m.id !== id);
   render();
-  await fetch(`${API}/delete`, {
+  const r = await fetch(`${API}/delete`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id })
   });
+  // Server returns updated list — sync immediately
+  try {
+    const result = await r.json();
+    if (result.messages) mergeMessages(result.messages);
+  } catch(e) {}
 }
 
 async function clearAll() {
@@ -254,7 +262,11 @@ async function clearAll() {
   // Optimistic: clear local immediately
   messages = [];
   render();
-  await fetch(`${API}/clear`, { method: 'POST' });
+  const r = await fetch(`${API}/clear`, { method: 'POST' });
+  try {
+    const result = await r.json();
+    if (result.messages) mergeMessages(result.messages);
+  } catch(e) {}
 }
 
 // ——— Send (optimistic render) ———
@@ -272,8 +284,8 @@ async function sendText() {
   render();
   scrollToBottom();
 
-  const ok = await postItem({ type: 'text', content: text });
-  if (!ok) {
+  const savedMsg = await postItem({ type: 'text', content: text });
+  if (!savedMsg) {
     // Remove pending on failure
     messages = messages.filter(m => m.id !== pendingId);
     render();
@@ -292,8 +304,8 @@ async function sendImage(blob) {
     render();
     scrollToBottom();
 
-    const ok = await postItem({ type: 'image', content: dataUrl });
-    if (!ok) {
+    const savedMsg = await postItem({ type: 'image', content: dataUrl });
+    if (!savedMsg) {
       messages = messages.filter(m => m.id !== pendingId);
       render();
     }
