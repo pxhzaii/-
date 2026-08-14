@@ -191,7 +191,7 @@ async function init() {
 // ——— Polling ———
 async function loadMessages() {
   try {
-    const r = await fetch(`${API}/list?t=${Date.now()}`, { cache: 'no-store' });
+    const r = await fetch(`${API}/list`, { method: 'POST' });
     if (!r.ok) throw new Error(r.status);
     const data = await r.json();
     mergeMessages(data);
