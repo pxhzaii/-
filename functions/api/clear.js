@@ -5,10 +5,9 @@ export async function onRequestPost({ env }) {
   const KV = env.CLIPDROP_KV;
   if (!KV) return new Response('KV not bound', { status: 500 });
 
-  const list = await KV.list({ prefix: 'msg:' });
-  await Promise.all(list.keys.map(key => KV.delete(key.name)));
+  await KV.put('messages', '[]');
 
-  return new Response(JSON.stringify({ ok: true, deleted: list.keys.length }), {
+  return new Response(JSON.stringify({ ok: true }), {
     headers: { 'Content-Type': 'application/json' }
   });
 }
