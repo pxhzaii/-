@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS messages (
 );
 ```
 
-4.Fork本仓库
+4. Fork本仓库
 5. Cloudflare Pages → 创建 → 连接 Git → 选 clipdrop 仓库
 6. Pages非works
 7. Pages非works
